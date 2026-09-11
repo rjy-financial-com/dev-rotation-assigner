@@ -1075,21 +1075,23 @@ async function resetAll() {
 }
 
 function rotationStartControl() {
-  const options = devsByName()
+  const skipYou = (list) => currentUser ? list.filter((dev) => dev.name !== currentUser) : list;
+  const optionDevs = skipYou(devsByName());
+  const chipDevs = skipYou(rotationSequence());
+  const shownOptions = optionDevs.length ? optionDevs : devsByName();
+  const shownChips = chipDevs.length ? chipDevs : rotationSequence();
+  const displayStart = shownChips.some((dev) => dev.name === state.rotationStart)
+    ? state.rotationStart
+    : (shownChips[0] ? shownChips[0].name : state.rotationStart);
+  const options = shownOptions
     .map((dev) => {
-      const selected = dev.name === state.rotationStart ? " selected" : "";
+      const selected = dev.name === displayStart ? " selected" : "";
       return '<option value="' + esc(dev.name) + '"' + selected + ">" + esc(dev.name) + "</option>";
     })
     .join("");
-  const chips = rotationSequence().flatMap((dev, index, list) => {
-    const classes = [];
-    if (dev.name === state.rotationStart) classes.push("is-start");
-    if (dev.name === currentUser) classes.push("is-you");
-    const classAttr = classes.length ? ' class="' + classes.join(" ") + '"' : "";
-    const skip = dev.name === currentUser
-      ? ' aria-disabled="true" title="Suggestions skip you on this page."'
-      : "";
-    const item = "<li" + classAttr + skip + ">" + esc(dev.name) + "</li>";
+  const chips = shownChips.flatMap((dev, index, list) => {
+    const start = dev.name === displayStart ? ' class="is-start"' : "";
+    const item = "<li" + start + ">" + esc(dev.name) + "</li>";
     if (index === list.length - 1) return [item];
     return [item, '<li class="cycle-sep" aria-hidden="true">→</li>'];
   }).join("");
@@ -1379,10 +1381,19 @@ function undoLabel() {
   return "Undo " + duty + " · " + last.devName + " · " + last.ticketKey;
 }
 
+function undoButton(label) {
+  const last = state.history[state.history.length - 1];
+  return (
+    '<button type="button" class="btn-undo" data-action="undo" title="' + esc(undoLabel()) + '" ' + (last ? "" : "disabled") + ">" +
+      '<svg class="undo-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h8"></path><path d="M6.5 6.5 3 10l3.5 3.5"></path><path d="M8 17.2A7 7 0 1 0 7.2 9"></path></svg>' +
+      "<span>" + esc(label) + "</span>" +
+    "</button>"
+  );
+}
+
 function view() {
   const balanced = isBalanced();
   const pending = pendingTickets();
-  const last = state.history[state.history.length - 1];
   const persist = ui.persistError ? '<p class="error">' + esc(ui.persistError) + "</p>" : "";
   const reviewError = ui.reviewError ? '<p class="error">' + esc(ui.reviewError) + "</p>" : "";
   const testError = ui.testError ? '<p class="error">' + esc(ui.testError) + "</p>" : "";
@@ -1422,7 +1433,7 @@ function view() {
         '<div class="top-actions">' +
           currentUserSelect() +
           themeButton() +
-          '<button type="button" class="btn-ghost" data-action="undo" title="' + esc(undoLabel()) + '" ' + (last ? "" : "disabled") + ">Undo</button>" +
+          undoButton("Undo") +
         "</div>" +
       "</header>" +
       howItWorks() +
@@ -1476,9 +1487,11 @@ function view() {
       '<section class="panel section">' +
         "<h2>Backup</h2>" +
         '<div class="util-row">' +
-          '<button type="button" class="btn-ghost" data-action="undo" title="' + esc(undoLabel()) + '" ' + (last ? "" : "disabled") + ">" + esc(undoLabel()) + "</button>" +
-          '<button type="button" class="btn-ghost" data-action="export" title="Saved in this browser as ' + STORAGE_KEY + '">Export JSON</button>' +
-          '<button type="button" class="btn-ghost" data-action="import" title="Who you are stays on this browser and is not overwritten by import.">Import JSON</button>' +
+          undoButton(undoLabel()) +
+          '<div class="util-pair">' +
+            '<button type="button" class="btn-quiet" data-action="export" title="Saved in this browser as ' + STORAGE_KEY + '">Export JSON</button>' +
+            '<button type="button" class="btn-quiet" data-action="import" title="Who you are stays on this browser and is not overwritten by import.">Import JSON</button>' +
+          "</div>" +
           '<input id="import-file" type="file" accept=".json,application/json" hidden>' +
           '<button type="button" class="btn-danger" data-action="reset">Reset all</button>' +
         "</div>" +
