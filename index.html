@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Rotation Assigner</title>
+  <script>
+    (function () {
+      var saved = "";
+      try { saved = localStorage.getItem("rotation_theme_v1") || ""; } catch (err) { saved = ""; }
+      var theme = saved === "dark" || saved === "light"
+        ? saved
+        : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f6f6a'/%3E%3Cpath d='M8 22V10h3.2l4.8 7.4L20.8 10H24v12h-2.6v-7.2L16.8 22h-1.6l-4.6-7.2V22H8z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="toast-root" class="toast-root"></div>
+  <dialog id="confirm-dialog"></dialog>
+  <script src="app.js"></script>
+</body>
+</html>
