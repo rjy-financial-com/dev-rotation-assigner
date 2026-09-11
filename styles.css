@@ -534,6 +534,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 tr.on-leave { background: var(--leave-bg); }
 
+tr.is-you td:not(:last-child) { color: var(--muted); opacity: 0.55; }
+
+tr.is-you .avatar { background: var(--field); color: var(--muted); }
+
 .status {
   display: inline-block;
   padding: 0.12rem 0.45rem;
@@ -544,6 +548,7 @@ tr.on-leave { background: var(--leave-bg); }
 
 .status.available { background: var(--ok-bg); color: var(--ok); }
 .status.leave { background: var(--warn-bg); color: var(--warn); }
+.status.skipped { background: var(--field); color: var(--muted); }
 
 .badge {
   display: inline-block;
@@ -613,6 +618,19 @@ tr.on-leave { background: var(--leave-bg); }
   background: var(--start-bg);
   border-color: transparent;
   color: var(--start-ink);
+}
+
+.cycle-chips li.is-you {
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+  font-weight: 500;
+}
+
+.cycle-chips li.is-you.is-start {
+  background: var(--start-bg);
+  color: var(--start-ink);
+  opacity: 0.65;
 }
 
 .log {
