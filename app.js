@@ -1082,8 +1082,14 @@ function rotationStartControl() {
     })
     .join("");
   const chips = rotationSequence().flatMap((dev, index, list) => {
-    const start = dev.name === state.rotationStart ? " is-start" : "";
-    const item = '<li class="' + start + '">' + esc(dev.name) + "</li>";
+    const classes = [];
+    if (dev.name === state.rotationStart) classes.push("is-start");
+    if (dev.name === currentUser) classes.push("is-you");
+    const classAttr = classes.length ? ' class="' + classes.join(" ") + '"' : "";
+    const skip = dev.name === currentUser
+      ? ' aria-disabled="true" title="Suggestions skip you on this page."'
+      : "";
+    const item = "<li" + classAttr + skip + ">" + esc(dev.name) + "</li>";
     if (index === list.length - 1) return [item];
     return [item, '<li class="cycle-sep" aria-hidden="true">→</li>'];
   }).join("");
@@ -1303,18 +1309,20 @@ function teamRows() {
         );
       }
       const onLeave = isOnLeave(dev, today);
-      const badge = catchingUpTitle(dev)
+      const isYou = dev.name === currentUser;
+      const badge = !isYou && catchingUpTitle(dev)
         ? '<span class="badge" title="' + esc(catchingUpTitle(dev)) + '">catching up</span>'
         : "";
-      const you = dev.name === currentUser ? '<span class="you">you</span>' : "";
+      const you = isYou ? '<span class="you">you</span>' : "";
       const start = dev.name === state.rotationStart ? '<span class="start-mark">start</span>' : "";
+      const rowClass = [onLeave ? "on-leave" : "", isYou ? "is-you" : ""].filter(Boolean).join(" ");
       return (
-        '<tr class="' + (onLeave ? "on-leave" : "") + '">' +
+        '<tr class="' + rowClass + '"' + (isYou ? ' title="Suggestions skip you on this page."' : "") + ">" +
           '<td><div class="name-cell">' + avatarHtml(dev.name, "sm") + "<span>" + esc(dev.name) + you + start + badge + "</span></div></td>" +
           '<td class="num">' + dev.reviewCount + "</td>" +
           (TESTING_ROTATION ? '<td class="num">' + dev.testCount + "</td>" : "") +
           "<td>" + leaveCell(dev) + "</td>" +
-          "<td><span class=\"status " + (onLeave ? "leave" : "available") + "\">" + (onLeave ? "Leave" : "Available") + "</span></td>" +
+          "<td><span class=\"status " + (onLeave ? "leave" : isYou ? "skipped" : "available") + "\">" + (onLeave ? "Leave" : isYou ? "Skipped" : "Available") + "</span></td>" +
           '<td class="num">' + dev.order + "</td>" +
           "<td>" +
             '<div class="actions">' +
