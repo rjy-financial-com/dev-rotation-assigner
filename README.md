@@ -1,37 +1,35 @@
 # Dev Rotation Assigner
 
-A small static page that picks the next **code reviewer** fairly for Anusree, Hrithik, Krithika, Rohan, and Sharon. Testing stays with QA for now.
+Picks the next **code reviewer** fairly for the team. Testing stays with QA.
 
-Copy these four files into a repo (keep them in the same folder). Rename this file to `README.md` if it is the only app in that repo.
+## Assign a reviewer
 
-- `index.html`
-- `styles.css`
-- `app.js`
-- this README
+1. Set **I am** to yourself. Suggestions skip you so anyone on the team can use the page.
+2. Enter the ticket key (`DORYFE-1234`, or just `1234`).
+3. Click **Suggest reviewer**, check the name, then **Confirm**.
+4. Copy the Teams ping from the toast if you want (`@Name — reviewer for DORYFE-1234`).
 
-No build, npm, or server is required.
+To change the reviewer on an existing ticket, pick it from the assigned list (or the ticket log) and suggest again. That person’s review count drops by 1.
 
-## Run it
+## How the next person is chosen
 
-Open `index.html` in a browser, or drop the folder on GitHub Pages / Vercel / Netlify as a static site.
+Lowest review count is next. If counts are tied, names go A–Z from **Starts with** on the team board, then wrap around.
 
-## How to use it
+Someone on leave is skipped and their count is left as-is, so they catch up when they return.
 
-1. Set **I am** to whoever is using the page. Suggestions skip that person so anyone can assign.
-2. Enter a ticket key (`DORYFE-1234`, or just `1234`) and **Suggest reviewer**, then **Confirm**.
-3. Copy the Teams ping from the toast if you want (`@Name — reviewer for DORYFE-1234`).
-4. Mark leave on the team board when someone is out. They are skipped; their count does not change, so they catch up when they return.
+Open **How assignment works** on the page for the same rules in short.
 
-**How assignment works** (also on the page, under that heading): lowest review count wins. Ties go A–Z from the person set as **Starts with**, then wrap around.
+## Team board
 
-## Sharing state
+- **Starts with** — who wins a tie. Change this if the cycle is already underway; it does not change past tickets.
+- **Edit** — name and time off. Set both dates to count as leave.
+- **Add** / **Remove** — keep the list in sync with who is on the team.
+- **QA** — a label only. QA is not assigned reviews.
 
-Rotation is saved in **this browser** under `rotation_state_v1`. Who you are and the theme are saved separately, so importing a teammate’s file does not change them.
+A **catching up** badge means that person is at least 2 reviews behind. **Balanced** means everyone’s counts match.
 
-To share or back up the rotation: **Export JSON** / **Import JSON**. Use **Undo** if the last assignment was a mistake.
+## Undo and sharing
 
-## Notes
+**Undo** reverses the last assignment.
 
-- Default team is the five names above. You can add or remove people on the team board.
-- QA is a label only, not in the rotation.
-- To round-robin testing later, set `TESTING_ROTATION` to `true` at the top of `app.js`.
+The rotation is saved in this browser. To share it with a teammate or move to another computer, **Export JSON** here and **Import JSON** there. Who you are on this page is not overwritten by import.
