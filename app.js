@@ -30,7 +30,11 @@ const ui = {
   toast: null,
   persistError: "",
   corruptNotice: false,
-  howOpen: false
+  howOpen: false,
+  spValue: "",
+  spUnit: "minutes",
+  spResult: null,
+  spError: ""
 };
 
 let state = defaultState();
@@ -109,6 +113,13 @@ function formatTs(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function calculateStoryPoints(minutes) {
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    throw new Error("Enter a valid, non-negative number.");
+  }
+  return Number((minutes / 480).toFixed(3));
 }
 
 function isOnLeave(dev, today) {
@@ -1391,6 +1402,59 @@ function undoButton(label) {
   );
 }
 
+function storyPointPanel() {
+  const minutesChecked = ui.spUnit === "minutes" ? " checked" : "";
+  const hoursChecked = ui.spUnit === "hours" ? " checked" : "";
+  const error = ui.spError ? '<p class="error">' + esc(ui.spError) + "</p>" : "";
+  const result = ui.spResult == null
+    ? ""
+    : '<div class="suggestion sp-result" role="status">' +
+        '<p class="kicker">Story points</p>' +
+        "<p class=\"suggestion-name\">" + esc(String(ui.spResult)) + "</p>" +
+      "</div>";
+  return (
+    '<section class="panel section">' +
+      "<h2>Story Point Utility</h2>" +
+      '<form class="stack" data-form="story-points">' +
+        '<label>Time logged' +
+          '<input id="sp-value" data-field="spValue" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter time" value="' + esc(ui.spValue) + '">' +
+        "</label>" +
+        '<fieldset class="unit-toggle">' +
+          "<legend>Input unit</legend>" +
+          '<label><input type="radio" name="sp-unit" data-field="spUnit" value="minutes"' + minutesChecked + "> Minutes</label>" +
+          '<label><input type="radio" name="sp-unit" data-field="spUnit" value="hours"' + hoursChecked + "> Hours</label>" +
+        "</fieldset>" +
+        '<p class="hint">Baseline: 1 SP = 8 hours = 480 minutes.</p>' +
+        error +
+        '<div class="actions">' +
+          '<button type="submit" class="btn">Calculate SP</button>' +
+          '<button type="button" class="btn-ghost" data-action="clear-story-points">Clear</button>' +
+        "</div>" +
+        result +
+      "</form>" +
+    "</section>"
+  );
+}
+
+function calculateStoryPointsFromForm() {
+  const value = Number(ui.spValue);
+  if (ui.spValue === "" || !Number.isFinite(value)) {
+    ui.spError = "Enter a valid number for time logged.";
+    ui.spResult = null;
+    render();
+    return;
+  }
+  try {
+    const minutes = ui.spUnit === "hours" ? value * 60 : value;
+    ui.spResult = calculateStoryPoints(minutes);
+    ui.spError = "";
+  } catch (error) {
+    ui.spError = error.message;
+    ui.spResult = null;
+  }
+  render();
+}
+
 function view() {
   const balanced = isBalanced();
   const pending = pendingTickets();
@@ -1484,6 +1548,7 @@ function view() {
         "<h2>Ticket log</h2>" +
         ticketLog() +
       "</section>" +
+      storyPointPanel() +
       '<section class="panel section">' +
         "<h2>Backup</h2>" +
         '<div class="util-row">' +
@@ -1587,6 +1652,20 @@ function onField(target) {
     if (meta) meta.innerHTML = headerMetaHtml();
     return;
   }
+  if (field === "spValue") {
+    ui.spValue = target.value;
+    ui.spError = "";
+    ui.spResult = null;
+    return;
+  }
+  if (field === "spUnit") {
+    if (target.value !== "minutes" && target.value !== "hours") return;
+    ui.spUnit = target.value;
+    ui.spError = "";
+    ui.spResult = null;
+    render();
+    return;
+  }
   if (!ui.edit) return;
   if (field === "editName") ui.edit.name = target.value;
   if (field === "editFrom") ui.edit.leaveFrom = target.value || null;
@@ -1636,6 +1715,7 @@ document.addEventListener("submit", (event) => {
   if (name === "suggest-test") suggestTest();
   if (name === "add-dev") addDev();
   if (name === "save-edit") saveEdit();
+  if (name === "story-points") calculateStoryPointsFromForm();
 });
 
 document.addEventListener("click", (event) => {
@@ -1758,6 +1838,14 @@ document.addEventListener("click", (event) => {
     ui.corruptNotice = false;
     persist();
     render();
+  }
+  if (action === "clear-story-points") {
+    ui.spValue = "";
+    ui.spResult = null;
+    ui.spError = "";
+    render();
+    const input = document.getElementById("sp-value");
+    if (input) input.focus();
   }
 });
 
