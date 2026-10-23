@@ -588,34 +588,54 @@ html[data-theme="dark"] .theme-icon:last-child {
   font-weight: 600;
 }
 
-.unit-toggle {
-  margin: 0;
-  padding: 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  display: flex;
-  flex-wrap: wrap;
+.sp-grid {
+  display: grid;
   gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
-.unit-toggle legend {
-  padding: 0 0.2rem;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.sp-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.05rem 1.15rem 1.15rem;
+  background: var(--field);
 }
 
-.unit-toggle label {
-  display: inline-flex;
-  align-items: center;
+.sp-card h3 {
+  margin: 0 0 0.9rem;
+  font-size: 1.05rem;
+}
+
+.sp-card label {
   gap: 0.45rem;
-  font-size: 0.92rem;
+}
+
+.sp-card input[type="text"],
+.sp-card input[type="number"] {
+  min-height: 2.9rem;
+}
+
+.sp-card .hint {
+  margin-top: 0.6rem;
+}
+
+.sp-inline-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .sp-result {
-  margin-top: 0.15rem;
+  margin-top: 0.75rem;
+  padding: 0.9rem 0.95rem;
+}
+
+.sp-card code {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.02rem 0.35rem;
+  font-size: 0.88em;
 }
 
 .empty-note {

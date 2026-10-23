@@ -2,6 +2,7 @@ const STORAGE_KEY = "rotation_state_v1";
 const USER_KEY = "rotation_current_user_v1";
 const THEME_KEY = "rotation_theme_v1";
 const TICKET_PREFIX = "DORYFE-";
+const WORKDAY_MINUTES = 480;
 
 // Testing is not in the rotation for now. QA handles it.
 // Set this to true later if QA is overburdened and testing should round-robin too.
@@ -31,10 +32,8 @@ const ui = {
   persistError: "",
   corruptNotice: false,
   howOpen: false,
-  spValue: "",
-  spUnit: "minutes",
-  spResult: null,
-  spError: ""
+  spTimeInput: "",
+  spPointsInput: "0"
 };
 
 let state = defaultState();
@@ -119,7 +118,85 @@ function calculateStoryPoints(minutes) {
   if (!Number.isFinite(minutes) || minutes < 0) {
     throw new Error("Enter a valid, non-negative number.");
   }
-  return Number((minutes / 480).toFixed(3));
+  return Number((minutes / WORKDAY_MINUTES).toFixed(3));
+}
+
+function formatDecimal(value, digits) {
+  return Number(value.toFixed(digits)).toString();
+}
+
+function parseLoggedTimeToMinutes(raw) {
+  const text = String(raw || "").trim().toLowerCase();
+  if (!text) return 0;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text) * 60;
+  const hhmm = text.match(/^(\d+):([0-5]?\d)$/);
+  if (hhmm) return Number(hhmm[1]) * 60 + Number(hhmm[2]);
+  let normalized = text.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+  let total = 0;
+  let lastIndex = 0;
+  const token = /(\d+(?:\.\d+)?)\s*([dhm])/g;
+  let match = token.exec(normalized);
+  if (!match) throw new Error("Use formats like 1h 30m, 90m, 1.5h, 1:30, or 2d 3h.");
+  while (match) {
+    const between = normalized.slice(lastIndex, match.index).trim();
+    if (between) throw new Error("Use formats like 1h 30m, 90m, 1.5h, 1:30, or 2d 3h.");
+    const value = Number(match[1]);
+    const unit = match[2];
+    if (unit === "d") total += value * WORKDAY_MINUTES;
+    if (unit === "h") total += value * 60;
+    if (unit === "m") total += value;
+    lastIndex = token.lastIndex;
+    match = token.exec(normalized);
+  }
+  if (normalized.slice(lastIndex).trim()) {
+    throw new Error("Use formats like 1h 30m, 90m, 1.5h, 1:30, or 2d 3h.");
+  }
+  return total;
+}
+
+function formatMinutesToLabel(minutes) {
+  if (!Number.isFinite(minutes) || minutes < 0) return "—";
+  const total = Number(minutes.toFixed(2));
+  if (total === 0) return "0m";
+  const day = WORKDAY_MINUTES;
+  const days = Math.floor(total / day);
+  let rest = total - (days * day);
+  const hours = Math.floor(rest / 60);
+  rest = Number((rest - (hours * 60)).toFixed(2));
+  const parts = [];
+  if (days) parts.push(days + "d");
+  if (hours) parts.push(hours + "h");
+  if (rest || !parts.length) parts.push(formatDecimal(rest, 2) + "m");
+  return parts.join(" ");
+}
+
+function storyPointPreview() {
+  const timeInput = String(ui.spTimeInput || "").trim();
+  const pointsInput = String(ui.spPointsInput || "").trim();
+  const viewState = {
+    timePoints: "0",
+    timeExact: "0",
+    timeError: "",
+    pointsTime: "0m",
+    pointsError: ""
+  };
+  try {
+    const minutes = parseLoggedTimeToMinutes(timeInput);
+    const points = calculateStoryPoints(minutes);
+    viewState.timePoints = formatDecimal(points, 3);
+    viewState.timeExact = formatDecimal(minutes / WORKDAY_MINUTES, 6);
+  } catch (error) {
+    viewState.timeError = error.message || "Invalid time format.";
+  }
+  if (pointsInput !== "") {
+    const points = Number(pointsInput);
+    if (!Number.isFinite(points) || points < 0) {
+      viewState.pointsError = "Enter a valid, non-negative points value.";
+    } else {
+      viewState.pointsTime = formatMinutesToLabel(points * WORKDAY_MINUTES);
+    }
+  }
+  return viewState;
 }
 
 function isOnLeave(dev, today) {
@@ -1403,56 +1480,57 @@ function undoButton(label) {
 }
 
 function storyPointPanel() {
-  const minutesChecked = ui.spUnit === "minutes" ? " checked" : "";
-  const hoursChecked = ui.spUnit === "hours" ? " checked" : "";
-  const error = ui.spError ? '<p class="error">' + esc(ui.spError) + "</p>" : "";
-  const result = ui.spResult == null
-    ? ""
-    : '<div class="suggestion sp-result" role="status">' +
-        '<p class="kicker">Story points</p>' +
-        "<p class=\"suggestion-name\">" + esc(String(ui.spResult)) + "</p>" +
-      "</div>";
+  const preview = storyPointPreview();
   return (
     '<section class="panel section">' +
-      "<h2>Story Point Utility</h2>" +
-      '<form class="stack" data-form="story-points">' +
-        '<label>Time logged' +
-          '<input id="sp-value" data-field="spValue" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter time" value="' + esc(ui.spValue) + '">' +
-        "</label>" +
-        '<fieldset class="unit-toggle">' +
-          "<legend>Input unit</legend>" +
-          '<label><input type="radio" name="sp-unit" data-field="spUnit" value="minutes"' + minutesChecked + "> Minutes</label>" +
-          '<label><input type="radio" name="sp-unit" data-field="spUnit" value="hours"' + hoursChecked + "> Hours</label>" +
-        "</fieldset>" +
-        '<p class="hint">Baseline: 1 SP = 8 hours = 480 minutes.</p>' +
-        error +
-        '<div class="actions">' +
-          '<button type="submit" class="btn">Calculate SP</button>' +
-          '<button type="button" class="btn-ghost" data-action="clear-story-points">Clear</button>' +
-        "</div>" +
-        result +
-      "</form>" +
+      "<h2>Hours ⇄ Points</h2>" +
+      '<p class="hint">1 point = 8 hours (1 day). Converts both ways based on your baseline.</p>' +
+      '<div class="sp-grid">' +
+        '<article class="sp-card">' +
+          "<h3>Time → Points</h3>" +
+          '<label>Time' +
+            '<input id="sp-time-input" data-field="spTimeInput" type="text" spellcheck="false" autocomplete="off" placeholder="e.g. 1h 30m" value="' + esc(ui.spTimeInput) + '">' +
+          "</label>" +
+          '<p class="hint">Accepts <code>1h 30m</code>, <code>1h30m</code>, <code>90m</code>, <code>1.5h</code>, <code>1:30</code>, <code>2d 3h</code>. A plain number counts as hours.</p>' +
+          '<p id="sp-time-error" class="error"' + (preview.timeError ? "" : ' hidden') + ">" + esc(preview.timeError) + "</p>" +
+          '<div class="suggestion sp-result" role="status">' +
+            '<p class="suggestion-name"><span id="sp-time-points">' + esc(preview.timePoints) + '</span><span class="sp-inline-note"> nearest scale value</span></p>' +
+            '<p id="sp-time-exact" class="hint">Exact: ' + esc(preview.timeExact) + " points</p>" +
+          "</div>" +
+        "</article>" +
+        '<article class="sp-card">' +
+          "<h3>Points → Time</h3>" +
+          '<label>Points' +
+            '<input id="sp-points-input" data-field="spPointsInput" type="number" min="0" step="any" inputmode="decimal" value="' + esc(ui.spPointsInput) + '">' +
+          "</label>" +
+          '<p id="sp-points-error" class="error"' + (preview.pointsError ? "" : ' hidden') + ">" + esc(preview.pointsError) + "</p>" +
+          '<div class="suggestion sp-result" role="status">' +
+            '<p id="sp-points-time" class="suggestion-name">' + esc(preview.pointsTime) + "</p>" +
+          "</div>" +
+        "</article>" +
+      "</div>" +
     "</section>"
   );
 }
 
-function calculateStoryPointsFromForm() {
-  const value = Number(ui.spValue);
-  if (ui.spValue === "" || !Number.isFinite(value)) {
-    ui.spError = "Enter a valid number for time logged.";
-    ui.spResult = null;
-    render();
-    return;
+function paintStoryPointPreview() {
+  const preview = storyPointPreview();
+  const timeError = document.getElementById("sp-time-error");
+  const timePoints = document.getElementById("sp-time-points");
+  const timeExact = document.getElementById("sp-time-exact");
+  const pointsError = document.getElementById("sp-points-error");
+  const pointsTime = document.getElementById("sp-points-time");
+  if (timeError) {
+    timeError.textContent = preview.timeError;
+    timeError.hidden = !preview.timeError;
   }
-  try {
-    const minutes = ui.spUnit === "hours" ? value * 60 : value;
-    ui.spResult = calculateStoryPoints(minutes);
-    ui.spError = "";
-  } catch (error) {
-    ui.spError = error.message;
-    ui.spResult = null;
+  if (timePoints) timePoints.textContent = preview.timePoints;
+  if (timeExact) timeExact.textContent = "Exact: " + preview.timeExact + " points";
+  if (pointsError) {
+    pointsError.textContent = preview.pointsError;
+    pointsError.hidden = !preview.pointsError;
   }
-  render();
+  if (pointsTime) pointsTime.textContent = preview.pointsTime;
 }
 
 function view() {
@@ -1548,7 +1626,6 @@ function view() {
         "<h2>Ticket log</h2>" +
         ticketLog() +
       "</section>" +
-      storyPointPanel() +
       '<section class="panel section">' +
         "<h2>Backup</h2>" +
         '<div class="util-row">' +
@@ -1562,6 +1639,7 @@ function view() {
         "</div>" +
         persist +
       "</section>" +
+      storyPointPanel() +
     "</div>"
   );
 }
@@ -1652,18 +1730,14 @@ function onField(target) {
     if (meta) meta.innerHTML = headerMetaHtml();
     return;
   }
-  if (field === "spValue") {
-    ui.spValue = target.value;
-    ui.spError = "";
-    ui.spResult = null;
+  if (field === "spTimeInput") {
+    ui.spTimeInput = target.value;
+    paintStoryPointPreview();
     return;
   }
-  if (field === "spUnit") {
-    if (target.value !== "minutes" && target.value !== "hours") return;
-    ui.spUnit = target.value;
-    ui.spError = "";
-    ui.spResult = null;
-    render();
+  if (field === "spPointsInput") {
+    ui.spPointsInput = target.value;
+    paintStoryPointPreview();
     return;
   }
   if (!ui.edit) return;
@@ -1715,7 +1789,6 @@ document.addEventListener("submit", (event) => {
   if (name === "suggest-test") suggestTest();
   if (name === "add-dev") addDev();
   if (name === "save-edit") saveEdit();
-  if (name === "story-points") calculateStoryPointsFromForm();
 });
 
 document.addEventListener("click", (event) => {
@@ -1838,14 +1911,6 @@ document.addEventListener("click", (event) => {
     ui.corruptNotice = false;
     persist();
     render();
-  }
-  if (action === "clear-story-points") {
-    ui.spValue = "";
-    ui.spResult = null;
-    ui.spError = "";
-    render();
-    const input = document.getElementById("sp-value");
-    if (input) input.focus();
   }
 });
 
